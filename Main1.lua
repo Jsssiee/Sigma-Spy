@@ -2083,7 +2083,12 @@ local Config = Modules.Config
 --// Use custom font (optional)
 local FontContent = Files:GetAsset("ProggyClean.ttf", true)
 local FontJsonFile = Files:CreateFont("ProggyClean", FontContent)
-Ui:SetFontFile(FontJsonFile)
+
+if Ui.SetFont then
+    Ui:SetFont(FontJsonFile, FontContent)
+elseif Ui.SetFontFile then
+    Ui:SetFontFile(FontJsonFile)
+end
 
 --// Load modules
 
