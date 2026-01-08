@@ -1,3 +1,6 @@
+--// Очищаем старые глобальные переменные, если они были
+if getgenv().Files then getgenv().Files = nil end
+
 --// Base Configuration
 local Configuration = {
 	UseWorkspace = false, 
@@ -7,7 +10,6 @@ local Configuration = {
 	ParserUrl = "https://raw.githubusercontent.com/depthso/Roblox-parser/refs/heads/main/dist/Main.luau"
 }
 
---// Load overwrites
 local Parameters = {...}
 local Overwrites = Parameters[1]
 if typeof(Overwrites) == "table" then
@@ -16,59 +18,68 @@ if typeof(Overwrites) == "table" then
 	end
 end
 
---// Service handler
 local Services = setmetatable({}, {
 	__index = function(self, Name: string): Instance
-		local Service = game:GetService(Name)
-		return cloneref(Service)
+		return cloneref(game:GetService(Name))
 	end,
 })
 
----------------------------------------------------------------------
--- 1. СНАЧАЛА ЗАГРУЖАЕМ FILES И НАСТРАИВАЕМ ЕГО (ЭТО САМОЕ ВАЖНОЕ) --
----------------------------------------------------------------------
-local Files = loadstring(game:HttpGet("https://raw.githubusercontent.com/Jsssiee/Sigma-Spy/main/src/lib/Files.lua"))()
-
--- Передаем конфиг, чтобы не было ошибки ForceUseCustomComm
-Files:PushConfig(Configuration)
-
--- Инициализируем сервисы внутри Files
-Files:Init({
-	Services = Services
-})
+print("[Sigma Spy] Starting manual loading...")
 
 ---------------------------------------------------------------------
--- 2. ТЕПЕРЬ ФУНКЦИЯ ЗАГРУЗКИ (Она уже видит переменную Files)     --
+-- 1. ЗАГРУЖАЕМ FILES И ДЕЛАЕМ ЕГО ГЛОБАЛЬНЫМ
+---------------------------------------------------------------------
+local FilesUrl = "https://raw.githubusercontent.com/Jsssiee/Sigma-Spy/main/src/lib/Files.lua"
+-- Загружаем сам скрипт
+local FilesFunc = loadstring(game:HttpGet(FilesUrl))
+-- Получаем таблицу
+local FilesLib = FilesFunc()
+
+if not FilesLib then
+    return warn("[Sigma Spy] Error: Files.lua did not return a table!")
+end
+
+-- ВРУЧНУЮ устанавливаем конфигурацию (самый надежный способ)
+FilesLib.Configuration = Configuration
+FilesLib.Services = Services
+
+-- Делаем Files глобальным, чтобы все модули видели именно ЭТУ копию
+getgenv().Files = FilesLib
+
+print("[Sigma Spy] Files loaded and Config set.")
+
+-- Инициализация (если есть метод Init)
+if FilesLib.Init then
+    FilesLib:Init({ Services = Services })
+end
+
+---------------------------------------------------------------------
+-- 2. ФУНКЦИЯ ЗАГРУЗКИ (Использует глобальный Files)
 ---------------------------------------------------------------------
 local function LoadLib(path)
-    -- Загружаем код
     local url = "https://raw.githubusercontent.com/Jsssiee/Sigma-Spy/main/src/lib/"..path..".lua"
     local func = loadstring(game:HttpGet(url))
     
-    -- Создаем поддельное окружение для скрипта
     local env = getfenv(func)
     
-    -- ВАЖНО: Тут мы кладем уже созданный выше Files внутрь загружаемого скрипта
-    env.Files = Files         
+    -- Жестко привязываем наши глобальные переменные
+    env.Files = getgenv().Files 
     env.Configuration = Configuration 
     env.Services = Services   
     
-    -- Применяем окружение и запускаем
     setfenv(func, env)
     return func()
 end
 
 ---------------------------------------------------------------------
--- 3. ЗАГРУЖАЕМ ОСТАЛЬНЫЕ СКРИПТЫ                                  --
+-- 3. ЗАГРУЗКА ОСТАЛЬНЫХ СКРИПТОВ
 ---------------------------------------------------------------------
 local Scripts = {
-    --// User configurations
     Config = LoadLib("Config"),
     ReturnSpoofs = LoadLib("Return%20spoofs"), 
     Configuration = Configuration,
-    Files = Files,
+    Files = getgenv().Files, -- Используем глобальную версию
 
-    --// Libraries
     Process = LoadLib("Process"),
     Hook = LoadLib("Hook"),
     Flags = LoadLib("Flags"),
@@ -77,93 +88,70 @@ local Scripts = {
     Communication = LoadLib("Communication")
 }
 
---// Services
-local Players: Players = Services.Players
-
---// Dependencies
 local Modules = Scripts
 local Process = Modules.Process
-local Hook = Modules.Hook
 local Ui = Modules.Ui
-local Generation = Modules.Generation
-local Communication = Modules.Communication
 local Config = Modules.Config
+local Communication = Modules.Communication
+local Generation = Modules.Generation
+local Hook = Modules.Hook
 
---// Use custom font (optional)
--- Files уже загружен, так что это сработает
-local FontContent = Files:GetAsset("ProggyClean.ttf", true)
-local FontJsonFile = Files:CreateFont("ProggyClean", FontContent)
+--// Setup Font
+local FontContent = getgenv().Files:GetAsset("ProggyClean.ttf", true)
+local FontJsonFile = getgenv().Files:CreateFont("ProggyClean", FontContent)
+if Ui then Ui:SetFontFile(FontJsonFile) end
 
--- У Ui есть доступ к методам, если Ui.lua загрузился правильно
-if Ui then
-    Ui:SetFontFile(FontJsonFile)
-end
+--// ПРОВЕРКА ПЕРЕД ЗАПУСКОМ
+-- Еще раз принудительно обновляем конфиг перед проверкой
+getgenv().Files.Configuration = Configuration 
 
---// Load modules
--- Проверка конфига теперь пройдет, т.к. Files знает про Configuration
+print("[Sigma Spy] Checking config...")
+-- Если ошибка тут, значит Process.lua не видит таблицу Files.Configuration
 Process:CheckConfig(Config)
+print("[Sigma Spy] Config checked successfully.")
 
--- Вместо старого LoadLibraries используем ручную загрузку
-Files:LoadModules(Modules, {
+-- Вместо LoadLibraries
+getgenv().Files:LoadModules(Modules, {
 	Modules = Modules,
 	Services = Services
 })
 
---// ReGui Create window
+--// UI Creation
 local Window = Ui:CreateMainWindow()
 
---// Check if Sigma spy is supported
 local Supported = Process:CheckIsSupported()
 if not Supported then 
 	Window:Close()
 	return
 end
 
---// Create communication channel
 local ChannelId, Event = Communication:CreateChannel()
-Communication:AddCommCallback("QueueLog", function(...)
-	Ui:QueueLog(...)
-end)
-Communication:AddCommCallback("Print", function(...)
-	Ui:ConsoleLog(...)
-end)
+Communication:AddCommCallback("QueueLog", function(...) Ui:QueueLog(...) end)
+Communication:AddCommCallback("Print", function(...) Ui:ConsoleLog(...) end)
 
---// Generation swaps
-local LocalPlayer = Players.LocalPlayer
+local LocalPlayer = Services.Players.LocalPlayer
 Generation:SetSwapsCallback(function(self)
-	self:AddSwap(LocalPlayer, {
-		String = "LocalPlayer",
-	})
-	self:AddSwap(LocalPlayer.Character, {
-		String = "Character",
-		NextParent = LocalPlayer
-	})
+	self:AddSwap(LocalPlayer, {String = "LocalPlayer"})
+	self:AddSwap(LocalPlayer.Character, {String = "Character", NextParent = LocalPlayer})
 end)
 
---// Create window content
 Ui:CreateWindowContent(Window)
-
---// Begin the Log queue 
 Ui:SetCommChannel(Event)
 Ui:BeginLogService()
 
---// Load hooks
-local ActorCode = Files:MakeActorScript(Scripts, ChannelId)
+local ActorCode = getgenv().Files:MakeActorScript(Scripts, ChannelId)
 Hook:LoadHooks(ActorCode, ChannelId)
 
 local EnablePatches = Ui:AskUser({
 	Title = "Enable function patches?",
 	Content = {
-		"On some executors, function patches can prevent common detections that executor has",
-		"By enabling this, it MAY trigger hook detections in some games, this is why you are asked.",
-		"If it doesn't work, rejoin and press 'No'",
-		"",
-		"(This does not affect game functionality)"
+		"Enable function patches? (May prevent detection on some executors)",
 	},
 	Options = {"Yes", "No"}
 }) == "Yes"
 
---// Begin hooks
 Event:Fire("BeginHooks", {
 	PatchFunctions = EnablePatches
 })
+
+print("[Sigma Spy] Loaded successfully!")
