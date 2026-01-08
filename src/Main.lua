@@ -3,7 +3,7 @@ local Configuration = {
 	UseWorkspace = false, 
 	NoActors = false,
 	FolderName = "Sigma Spy",
-	RepoUrl = "https://raw.githubusercontent.com/Jsssiee/Sigma-Spy/refs/heads/main",
+	RepoUrl = "https://raw.githubusercontent.com/Jsssiee/Sigma-Spy/main",
 	ParserUrl = "https://raw.githubusercontent.com/depthso/Roblox-parser/refs/heads/main/dist/Main.luau"
 }
 
@@ -24,22 +24,47 @@ local Services = setmetatable({}, {
 	end,
 })
 
---// Files module
+---------------------------------------------------------------------
+-- 1. СНАЧАЛА ЗАГРУЖАЕМ FILES И НАСТРАИВАЕМ ЕГО (ЭТО САМОЕ ВАЖНОЕ) --
+---------------------------------------------------------------------
 local Files = loadstring(game:HttpGet("https://raw.githubusercontent.com/Jsssiee/Sigma-Spy/main/src/lib/Files.lua"))()
+
+-- Передаем конфиг, чтобы не было ошибки ForceUseCustomComm
 Files:PushConfig(Configuration)
+
+-- Инициализируем сервисы внутри Files
 Files:Init({
 	Services = Services
 })
 
-local Folder = Files.FolderName
+---------------------------------------------------------------------
+-- 2. ТЕПЕРЬ ФУНКЦИЯ ЗАГРУЗКИ (Она уже видит переменную Files)     --
+---------------------------------------------------------------------
 local function LoadLib(path)
-    return loadstring(game:HttpGet("https://raw.githubusercontent.com/Jsssiee/Sigma-Spy/main/src/lib/"..path..".lua"))()
+    -- Загружаем код
+    local url = "https://raw.githubusercontent.com/Jsssiee/Sigma-Spy/main/src/lib/"..path..".lua"
+    local func = loadstring(game:HttpGet(url))
+    
+    -- Создаем поддельное окружение для скрипта
+    local env = getfenv(func)
+    
+    -- ВАЖНО: Тут мы кладем уже созданный выше Files внутрь загружаемого скрипта
+    env.Files = Files         
+    env.Configuration = Configuration 
+    env.Services = Services   
+    
+    -- Применяем окружение и запускаем
+    setfenv(func, env)
+    return func()
 end
 
+---------------------------------------------------------------------
+-- 3. ЗАГРУЖАЕМ ОСТАЛЬНЫЕ СКРИПТЫ                                  --
+---------------------------------------------------------------------
 local Scripts = {
     --// User configurations
     Config = LoadLib("Config"),
-    ReturnSpoofs = LoadLib("Return%20spoofs"), -- %20 это пробел
+    ReturnSpoofs = LoadLib("Return%20spoofs"), 
     Configuration = Configuration,
     Files = Files,
 
@@ -55,7 +80,7 @@ local Scripts = {
 --// Services
 local Players: Players = Services.Players
 
---// Dependencies деревня шаманаевка на реке мамонтово
+--// Dependencies
 local Modules = Scripts
 local Process = Modules.Process
 local Hook = Modules.Hook
@@ -65,12 +90,20 @@ local Communication = Modules.Communication
 local Config = Modules.Config
 
 --// Use custom font (optional)
+-- Files уже загружен, так что это сработает
 local FontContent = Files:GetAsset("ProggyClean.ttf", true)
 local FontJsonFile = Files:CreateFont("ProggyClean", FontContent)
-Ui:SetFontFile(FontJsonFile)
+
+-- У Ui есть доступ к методам, если Ui.lua загрузился правильно
+if Ui then
+    Ui:SetFontFile(FontJsonFile)
+end
 
 --// Load modules
+-- Проверка конфига теперь пройдет, т.к. Files знает про Configuration
 Process:CheckConfig(Config)
+
+-- Вместо старого LoadLibraries используем ручную загрузку
 Files:LoadModules(Modules, {
 	Modules = Modules,
 	Services = Services
