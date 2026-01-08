@@ -1,13 +1,17 @@
---// Очищаем старые глобальные переменные, если они были
+--// Очищаем старые глобальные переменные
 if getgenv().Files then getgenv().Files = nil end
 
---// Base Configuration
+--// 1. ПОЛНАЯ КОНФИГУРАЦИЯ (Добавил ForceUseCustomComm чтобы не было ошибок)
 local Configuration = {
 	UseWorkspace = false, 
 	NoActors = false,
 	FolderName = "Sigma Spy",
 	RepoUrl = "https://raw.githubusercontent.com/Jsssiee/Sigma-Spy/main",
-	ParserUrl = "https://raw.githubusercontent.com/depthso/Roblox-parser/refs/heads/main/dist/Main.luau"
+	ParserUrl = "https://raw.githubusercontent.com/depthso/Roblox-parser/refs/heads/main/dist/Main.luau",
+	
+	-- Добавлены важные параметры, которых не хватало
+	ForceUseCustomComm = false,
+	DebugMode = false
 }
 
 local Parameters = {...}
@@ -27,42 +31,38 @@ local Services = setmetatable({}, {
 print("[Sigma Spy] Starting manual loading...")
 
 ---------------------------------------------------------------------
--- 1. ЗАГРУЖАЕМ FILES И ДЕЛАЕМ ЕГО ГЛОБАЛЬНЫМ
+-- 2. ЗАГРУЖАЕМ FILES
 ---------------------------------------------------------------------
 local FilesUrl = "https://raw.githubusercontent.com/Jsssiee/Sigma-Spy/main/src/lib/Files.lua"
--- Загружаем сам скрипт
 local FilesFunc = loadstring(game:HttpGet(FilesUrl))
--- Получаем таблицу
 local FilesLib = FilesFunc()
 
 if not FilesLib then
     return warn("[Sigma Spy] Error: Files.lua did not return a table!")
 end
 
--- ВРУЧНУЮ устанавливаем конфигурацию (самый надежный способ)
-FilesLib.Configuration = Configuration
-FilesLib.Services = Services
-
--- Делаем Files глобальным, чтобы все модули видели именно ЭТУ копию
-getgenv().Files = FilesLib
-
-print("[Sigma Spy] Files loaded and Config set.")
-
--- Инициализация (если есть метод Init)
+-- СНАЧАЛА делаем Init (он создает внутренние таблицы)
 if FilesLib.Init then
     FilesLib:Init({ Services = Services })
 end
 
+-- И ТОЛЬКО ПОТОМ записываем наш конфиг (перезаписываем пустой)
+FilesLib.Configuration = Configuration
+FilesLib.Services = Services
+
+-- Делаем Files глобальным
+getgenv().Files = FilesLib
+print("[Sigma Spy] Files initialized correctly.")
+
 ---------------------------------------------------------------------
--- 2. ФУНКЦИЯ ЗАГРУЗКИ (Использует глобальный Files)
+-- 3. ФУНКЦИЯ ЗАГРУЗКИ
 ---------------------------------------------------------------------
 local function LoadLib(path)
     local url = "https://raw.githubusercontent.com/Jsssiee/Sigma-Spy/main/src/lib/"..path..".lua"
     local func = loadstring(game:HttpGet(url))
     
     local env = getfenv(func)
-    
-    -- Жестко привязываем наши глобальные переменные
+    -- Внедряем готовую библиотеку Files во все скрипты
     env.Files = getgenv().Files 
     env.Configuration = Configuration 
     env.Services = Services   
@@ -72,13 +72,13 @@ local function LoadLib(path)
 end
 
 ---------------------------------------------------------------------
--- 3. ЗАГРУЗКА ОСТАЛЬНЫХ СКРИПТОВ
+-- 4. ЗАГРУЗКА СКРИПТОВ
 ---------------------------------------------------------------------
 local Scripts = {
     Config = LoadLib("Config"),
     ReturnSpoofs = LoadLib("Return%20spoofs"), 
     Configuration = Configuration,
-    Files = getgenv().Files, -- Используем глобальную версию
+    Files = getgenv().Files,
 
     Process = LoadLib("Process"),
     Hook = LoadLib("Hook"),
@@ -101,22 +101,21 @@ local FontContent = getgenv().Files:GetAsset("ProggyClean.ttf", true)
 local FontJsonFile = getgenv().Files:CreateFont("ProggyClean", FontContent)
 if Ui then Ui:SetFontFile(FontJsonFile) end
 
---// ПРОВЕРКА ПЕРЕД ЗАПУСКОМ
--- Еще раз принудительно обновляем конфиг перед проверкой
+print("[Sigma Spy] Checking config...")
+
+-- Еще раз на всякий случай обновляем ссылку на конфиг перед проверкой
 getgenv().Files.Configuration = Configuration 
 
-print("[Sigma Spy] Checking config...")
--- Если ошибка тут, значит Process.lua не видит таблицу Files.Configuration
+-- Теперь ошибки быть не должно, т.к. Files.Configuration существует и содержит ForceUseCustomComm
 Process:CheckConfig(Config)
-print("[Sigma Spy] Config checked successfully.")
 
--- Вместо LoadLibraries
+-- Загружаем модули
 getgenv().Files:LoadModules(Modules, {
 	Modules = Modules,
 	Services = Services
 })
 
---// UI Creation
+--// Создаем окно
 local Window = Ui:CreateMainWindow()
 
 local Supported = Process:CheckIsSupported()
@@ -145,7 +144,7 @@ Hook:LoadHooks(ActorCode, ChannelId)
 local EnablePatches = Ui:AskUser({
 	Title = "Enable function patches?",
 	Content = {
-		"Enable function patches? (May prevent detection on some executors)",
+		"Enable function patches?",
 	},
 	Options = {"Yes", "No"}
 }) == "Yes"
