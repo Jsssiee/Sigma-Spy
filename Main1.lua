@@ -2066,11 +2066,26 @@ local FontJsonFile = Files:CreateFont("ProggyClean", FontContent)
 Ui:SetFontFile(FontJsonFile)
 
 --// Load modules
-Process:CheckConfig(Config)
-Files:LoadModules(Modules, {
-	Modules = Modules,
-	Services = Services
-})
+for Name, Lib in pairs(Modules) do
+    if type(Lib) == "table" then
+
+        if Lib.Init then
+            local Success, Err = pcall(function()
+                Lib:Init({
+                    Modules = Modules,
+                    Services = Services,
+                    Files = Files,
+                    Configuration = Configuration
+                })
+            end)
+            if not Success then
+                warn("[Sigma Spy] Error init module " .. Name .. ": " .. tostring(Err))
+            end
+        end
+        
+        Lib.Files = Files
+    end
+end
 
 --// ReGui Create window
 local Window = Ui:CreateMainWindow()
