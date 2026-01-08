@@ -1,12 +1,10 @@
--- Compiled with Python Builder
--- Fixed ReGui link included
 --// Base Configuration
 local Configuration = {
 	UseWorkspace = false, 
 	NoActors = false,
 	FolderName = "Sigma Spy",
 	RepoUrl = "https://raw.githubusercontent.com/Jsssiee/Sigma-Spy/refs/heads/main",
-	ParserUrl = "https://raw.githubusercontent.com/depthso/Roblox-parser/refs/heads/main/dist/Main.luau"
+	ParserUrl = "https://raw.githubusercontent.com/Jsssiee/Roblox-parser/refs/heads/main/dist/Main.luau"
 }
 
 --// Load overwrites
@@ -898,8 +896,8 @@ type Log = {
 local SetClipboard = setclipboard or toclipboard or set_clipboard
 
 --// Libraries
-local ReGui = loadstring(game:HttpGet('https://raw.githubusercontent.com/depthso/Dear-ReGui/refs/heads/main/ReGui.lua'))()
-local IDEModule = loadstring(game:HttpGet('https://raw.githubusercontent.com/depthso/Dear-ReGui/refs/heads/main/lib/ide.lua'))()
+local ReGui = loadstring(game:HttpGet('https://raw.githubusercontent.com/Jsssiee/Dear-ReGui/refs/heads/main/ReGui.lua'))()
+local IDEModule = loadstring(game:HttpGet('https://raw.githubusercontent.com/Jsssiee/Dear-ReGui/refs/heads/main/lib/ide.lua'))()
 
 --// Services
 local InsertService: InsertService
@@ -1757,7 +1755,7 @@ type table = {
 }
 
 --// Libraries
-local ParserModule = loadstring(game:HttpGet('https://raw.githubusercontent.com/depthso/Roblox-parser/refs/heads/main/main.lua'))()
+local ParserModule = loadstring(game:HttpGet('https://raw.githubusercontent.com/Leon1324765s/Roblox-parser/refs/heads/main/main.lua'))()
 
 --// Parser
 function ParserModule:Import(Name: string)
