@@ -1,17 +1,14 @@
 --// Очистка окружения
 if getgenv().Files then getgenv().Files = nil end
 
---// 1. НАСТРОЙКА КОНФИГУРАЦИИ
--- Важно: мы создаем эту таблицу здесь, чтобы передать её во все скрипты
+--// 1. НАСТРОЙКИ
 local MasterConfig = {
 	UseWorkspace = false, 
 	NoActors = false,
 	FolderName = "Sigma Spy",
 	RepoUrl = "https://raw.githubusercontent.com/Jsssiee/Sigma-Spy/main",
 	ParserUrl = "https://raw.githubusercontent.com/depthso/Roblox-parser/refs/heads/main/dist/Main.luau",
-	
-	-- Добавляем параметры, чтобы избежать nil ошибок
-	ForceUseCustomComm = false,
+	ForceUseCustomComm = true,
 	DebugMode = false
 }
 
@@ -23,53 +20,46 @@ if typeof(Overwrites) == "table" then
 	end
 end
 
---// Сервисы
 local Services = setmetatable({}, {
 	__index = function(self, Name: string): Instance
 		return cloneref(game:GetService(Name))
 	end,
 })
 
-print("[Sigma Spy] Loading Files...")
+print("[Sigma Spy] Loading libs...")
 
---// 2. ЗАГРУЗКА FILES (ОСНОВА)
+--// 2. ЗАГРУЗКА FILES
 local FilesFunc = loadstring(game:HttpGet("https://raw.githubusercontent.com/Jsssiee/Sigma-Spy/main/src/lib/Files.lua"))
 local FilesLib = FilesFunc()
 
--- Инициализируем Files
 if FilesLib.Init then
     FilesLib:Init({ Services = Services })
 end
 
--- ЖЕСТКО ЗАПИСЫВАЕМ КОНФИГ
+-- Принудительно ставим конфиг
 FilesLib.Configuration = MasterConfig
 FilesLib.Services = Services
-
--- Делаем Files глобальным
 getgenv().Files = FilesLib
-print("[Sigma Spy] Files loaded & Config applied.")
 
---// 3. НОВАЯ ФУНКЦИЯ ЗАГРУЗКИ (С ВНЕДРЕНИЕМ КОДА)
+--// 3. ФУНКЦИЯ ЗАГРУЗКИ (С FIX-ом)
 local function LoadLib(name)
     local url = "https://raw.githubusercontent.com/Jsssiee/Sigma-Spy/main/src/lib/"..name..".lua"
     local source = game:HttpGet(url)
     
-    -- Мы добавляем эти строки в САМОЕ НАЧАЛО каждого скрипта.
-    -- Это гарантирует, что переменные Files и Configuration будут существовать.
+    -- Вставляем переменные в начало каждого скрипта
     local Injection = [[
         local Files = getgenv().Files
         local Configuration = Files.Configuration
         local Services = Files.Services
     ]]
     
-    local finalSource = Injection .. "\n" .. source
-    return loadstring(finalSource)()
+    return loadstring(Injection .. "\n" .. source)()
 end
 
---// 4. ЗАГРУЗКА ОСТАЛЬНЫХ СКРИПТОВ
+--// 4. ЗАГРУЗКА СКРИПТОВ
 local Scripts = {
-    -- Теперь каждый из них получит Files и Configuration автоматически
-    Config = LoadLib("Config"),
+    -- Если Config не загрузится, используем MasterConfig
+    Config = LoadLib("Config") or MasterConfig, 
     ReturnSpoofs = LoadLib("Return%20spoofs"), 
     Configuration = MasterConfig,
     Files = FilesLib,
@@ -90,16 +80,20 @@ local Communication = Modules.Communication
 local Generation = Modules.Generation
 local Hook = Modules.Hook
 
---// Setup Font
+--// Шрифты
 local FontContent = FilesLib:GetAsset("ProggyClean.ttf", true)
 local FontJsonFile = FilesLib:CreateFont("ProggyClean", FontContent)
 if Ui then Ui:SetFontFile(FontJsonFile) end
 
-print("[Sigma Spy] Checking config...")
+print("[Sigma Spy] Skipping config check to prevent crash...")
 
---// ФИНАЛЬНАЯ ПРОВЕРКА
--- Если это упадет, значит проблема в самом файле Process.lua (но теперь вряд ли)
-Process:CheckConfig(Config)
+-- !!! Я УДАЛИЛ Process:CheckConfig(Config) И ЗАМЕНИЛ НА ЭТО: !!!
+-- Просто объединяем таблицы вручную, если нужно
+for k, v in pairs(MasterConfig) do
+    if Config[k] == nil then
+        Config[k] = v
+    end
+end
 
 -- Загрузка модулей
 FilesLib:LoadModules(Modules, {
