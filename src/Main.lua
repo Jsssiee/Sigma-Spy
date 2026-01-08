@@ -25,36 +25,38 @@ local Services = setmetatable({}, {
 })
 
 --// Files module
-local Files = (function()
-	--INSERT: @lib/Files.lua
-end)()
+local Files = loadstring(game:HttpGet("https://raw.githubusercontent.com/Jsssiee/Sigma-Spy/main/src/lib/Files.lua"))()
 Files:PushConfig(Configuration)
 Files:Init({
 	Services = Services
 })
 
 local Folder = Files.FolderName
-local Scripts = {
-	--// User configurations
-	Config = Files:GetModule(`{Folder}/Config`, "Config"),
-	ReturnSpoofs = Files:GetModule(`{Folder}/Return spoofs`, "Return Spoofs"),
-	Configuration = Configuration,
-	Files = Files,
+local function LoadLib(path)
+    return loadstring(game:HttpGet("https://raw.githubusercontent.com/Jsssiee/Sigma-Spy/main/src/lib/"..path..".lua"))()
+end
 
-	--// Libraries
-	Process = {"base64", "COMPILE: @lib/Process.lua"},
-	Hook = {"base64", "COMPILE: @lib/Hook.lua"},
-	Flags = {"base64", "COMPILE: @lib/Flags.lua"},
-	Ui = {"base64", "COMPILE: @lib/Ui.lua"},
-	Generation = {"base64", "COMPILE: @lib/Generation.lua"},
-	Communication = {"base64", "COMPILE: @lib/Communication.lua"}
+local Scripts = {
+    --// User configurations
+    Config = LoadLib("Config"),
+    ReturnSpoofs = LoadLib("Return%20spoofs"), -- %20 это пробел
+    Configuration = Configuration,
+    Files = Files,
+
+    --// Libraries
+    Process = LoadLib("Process"),
+    Hook = LoadLib("Hook"),
+    Flags = LoadLib("Flags"),
+    Ui = LoadLib("Ui"),
+    Generation = LoadLib("Generation"),
+    Communication = LoadLib("Communication")
 }
 
 --// Services
 local Players: Players = Services.Players
 
---// Dependencies
-local Modules = Files:LoadLibraries(Scripts)
+--// Dependencies деревня шаманаевка на реке мамонтово
+local Modules = Scripts
 local Process = Modules.Process
 local Hook = Modules.Hook
 local Ui = Modules.Ui
