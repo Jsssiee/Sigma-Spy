@@ -1,140 +1,134 @@
---// Очистка окружения
-if getgenv().Files then getgenv().Files = nil end
-
---// 1. НАСТРОЙКИ
-local MasterConfig = {
+--// Base Configuration
+local Configuration = {
 	UseWorkspace = false, 
 	NoActors = false,
 	FolderName = "Sigma Spy",
-	RepoUrl = "https://raw.githubusercontent.com/Jsssiee/Sigma-Spy/main",
-	ParserUrl = "https://raw.githubusercontent.com/depthso/Roblox-parser/refs/heads/main/dist/Main.luau",
-	ForceUseCustomComm = true,
-	DebugMode = false
+	RepoUrl = "https://raw.githubusercontent.com/Jsssiee/Sigma-Spy/refs/heads/main",
+	ParserUrl = "https://raw.githubusercontent.com/depthso/Roblox-parser/refs/heads/main/dist/Main.luau"
 }
 
+--// Load overwrites
 local Parameters = {...}
 local Overwrites = Parameters[1]
 if typeof(Overwrites) == "table" then
 	for Key, Value in Overwrites do
-		MasterConfig[Key] = Value
+		Configuration[Key] = Value
 	end
 end
 
+--// Service handler
 local Services = setmetatable({}, {
 	__index = function(self, Name: string): Instance
-		return cloneref(game:GetService(Name))
+		local Service = game:GetService(Name)
+		return cloneref(Service)
 	end,
 })
 
-print("[Sigma Spy] Loading libs...")
+--// Files module
+local Files = (function()
+	--INSERT: @lib/Files.lua
+end)()
+Files:PushConfig(Configuration)
+Files:Init({
+	Services = Services
+})
 
---// 2. ЗАГРУЗКА FILES
-local FilesFunc = loadstring(game:HttpGet("https://raw.githubusercontent.com/Jsssiee/Sigma-Spy/main/src/lib/Files.lua"))
-local FilesLib = FilesFunc()
-
-if FilesLib.Init then
-    FilesLib:Init({ Services = Services })
-end
-
--- Принудительно ставим конфиг
-FilesLib.Configuration = MasterConfig
-FilesLib.Services = Services
-getgenv().Files = FilesLib
-
---// 3. ФУНКЦИЯ ЗАГРУЗКИ (С FIX-ом)
-local function LoadLib(name)
-    local url = "https://raw.githubusercontent.com/Jsssiee/Sigma-Spy/main/src/lib/"..name..".lua"
-    local source = game:HttpGet(url)
-    
-    -- Вставляем переменные в начало каждого скрипта
-    local Injection = [[
-        local Files = getgenv().Files
-        local Configuration = Files.Configuration
-        local Services = Files.Services
-    ]]
-    
-    return loadstring(Injection .. "\n" .. source)()
-end
-
---// 4. ЗАГРУЗКА СКРИПТОВ
+local Folder = Files.FolderName
 local Scripts = {
-    -- Если Config не загрузится, используем MasterConfig
-    Config = LoadLib("Config") or MasterConfig, 
-    ReturnSpoofs = LoadLib("Return%20spoofs"), 
-    Configuration = MasterConfig,
-    Files = FilesLib,
+	--// User configurations
+	Config = Files:GetModule(`{Folder}/Config`, "Config"),
+	ReturnSpoofs = Files:GetModule(`{Folder}/Return spoofs`, "Return Spoofs"),
+	Configuration = Configuration,
+	Files = Files,
 
-    Process = LoadLib("Process"),
-    Hook = LoadLib("Hook"),
-    Flags = LoadLib("Flags"),
-    Ui = LoadLib("Ui"),
-    Generation = LoadLib("Generation"),
-    Communication = LoadLib("Communication")
+	--// Libraries
+	Process = {"base64", "COMPILE: @lib/Process.lua"},
+	Hook = {"base64", "COMPILE: @lib/Hook.lua"},
+	Flags = {"base64", "COMPILE: @lib/Flags.lua"},
+	Ui = {"base64", "COMPILE: @lib/Ui.lua"},
+	Generation = {"base64", "COMPILE: @lib/Generation.lua"},
+	Communication = {"base64", "COMPILE: @lib/Communication.lua"}
 }
 
-local Modules = Scripts
+--// Services
+local Players: Players = Services.Players
+
+--// Dependencies
+local Modules = Files:LoadLibraries(Scripts)
 local Process = Modules.Process
-local Ui = Modules.Ui
-local Config = Modules.Config
-local Communication = Modules.Communication
-local Generation = Modules.Generation
 local Hook = Modules.Hook
+local Ui = Modules.Ui
+local Generation = Modules.Generation
+local Communication = Modules.Communication
+local Config = Modules.Config
 
---// Шрифты
-local FontContent = FilesLib:GetAsset("ProggyClean.ttf", true)
-local FontJsonFile = FilesLib:CreateFont("ProggyClean", FontContent)
-if Ui then Ui:SetFontFile(FontJsonFile) end
+--// Use custom font (optional)
+local FontContent = Files:GetAsset("ProggyClean.ttf", true)
+local FontJsonFile = Files:CreateFont("ProggyClean", FontContent)
+Ui:SetFontFile(FontJsonFile)
 
-print("[Sigma Spy] Skipping config check to prevent crash...")
-
--- !!! Я УДАЛИЛ Process:CheckConfig(Config) И ЗАМЕНИЛ НА ЭТО: !!!
--- Просто объединяем таблицы вручную, если нужно
-for k, v in pairs(MasterConfig) do
-    if Config[k] == nil then
-        Config[k] = v
-    end
-end
-
--- Загрузка модулей
-FilesLib:LoadModules(Modules, {
+--// Load modules
+Process:CheckConfig(Config)
+Files:LoadModules(Modules, {
 	Modules = Modules,
 	Services = Services
 })
 
---// UI Создание
+--// ReGui Create window
 local Window = Ui:CreateMainWindow()
 
+--// Check if Sigma spy is supported
 local Supported = Process:CheckIsSupported()
 if not Supported then 
 	Window:Close()
 	return
 end
 
+--// Create communication channel
 local ChannelId, Event = Communication:CreateChannel()
-Communication:AddCommCallback("QueueLog", function(...) Ui:QueueLog(...) end)
-Communication:AddCommCallback("Print", function(...) Ui:ConsoleLog(...) end)
-
-local LocalPlayer = Services.Players.LocalPlayer
-Generation:SetSwapsCallback(function(self)
-	self:AddSwap(LocalPlayer, {String = "LocalPlayer"})
-	self:AddSwap(LocalPlayer.Character, {String = "Character", NextParent = LocalPlayer})
+Communication:AddCommCallback("QueueLog", function(...)
+	Ui:QueueLog(...)
+end)
+Communication:AddCommCallback("Print", function(...)
+	Ui:ConsoleLog(...)
 end)
 
+--// Generation swaps
+local LocalPlayer = Players.LocalPlayer
+Generation:SetSwapsCallback(function(self)
+	self:AddSwap(LocalPlayer, {
+		String = "LocalPlayer",
+	})
+	self:AddSwap(LocalPlayer.Character, {
+		String = "Character",
+		NextParent = LocalPlayer
+	})
+end)
+
+--// Create window content
 Ui:CreateWindowContent(Window)
+
+--// Begin the Log queue 
 Ui:SetCommChannel(Event)
 Ui:BeginLogService()
 
-local ActorCode = FilesLib:MakeActorScript(Scripts, ChannelId)
+--// Load hooks
+local ActorCode = Files:MakeActorScript(Scripts, ChannelId)
 Hook:LoadHooks(ActorCode, ChannelId)
 
 local EnablePatches = Ui:AskUser({
 	Title = "Enable function patches?",
-	Content = { "Enable function patches?" },
+	Content = {
+		"On some executors, function patches can prevent common detections that executor has",
+		"By enabling this, it MAY trigger hook detections in some games, this is why you are asked.",
+		"If it doesn't work, rejoin and press 'No'",
+		"",
+		"(This does not affect game functionality)"
+	},
 	Options = {"Yes", "No"}
 }) == "Yes"
 
+--// Begin hooks
 Event:Fire("BeginHooks", {
 	PatchFunctions = EnablePatches
 })
-
-print("[Sigma Spy] Success!")
