@@ -2052,7 +2052,27 @@ end)()}
 local Players: Players = Services.Players
 
 --// Dependencies
-local Modules = Files:LoadLibraries(Scripts)
+local Modules = {}
+
+for Name, Data in pairs(Scripts) do
+    if type(Data) == "table" and Data[1] == "base64" then
+
+        Modules[Name] = Data[2]
+    elseif type(Data) == "string" then
+
+        local Func, Err = loadstring(Data)
+        if Func then
+            Modules[Name] = Func()
+        else
+            warn("Failed to load " .. Name)
+        end
+    else
+
+        Modules[Name] = Data
+    end
+end
+
+
 local Process = Modules.Process
 local Hook = Modules.Hook
 local Ui = Modules.Ui
