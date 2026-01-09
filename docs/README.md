@@ -1,4 +1,4 @@
-# Sigma-Spy
+# Sigma-Spy 
 A complete Remote Spy with an incredible parser that captures incoming and outgoing remotes data with Actor support!
 
 ## Socials 💬
@@ -100,5 +100,5 @@ Your executor must support these functions in order for it to function:
 
 
 ## Libraries used
-- [ReGui (Depso)](https://github.com/depthso/Dear-ReGui/tree/main) 
-- [Roblox-Parser (Depso)](https://github.com/depthso/Roblox-parser) 
+- [ReGui (Depso)](https://github.com/depthso/Dear-ReGui/tree/main) [DELETED] 
+- [Roblox-Parser (Depso)](https://github.com/depthso/Roblox-parser) [DELETED]
